@@ -54,16 +54,12 @@ func (q *Queue) Add(v interface{}) {
 	}
 }
 
+// Len returns the number of elements in the queue
 func (q *Queue) Len() int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 
-	c := 0
-	el := q.first
-	for el != nil {
-		el = el.next
-		c++
-	}
-
-	return c
+	return len(q.m)
 }
 
 // Clear removes all elements from the queue.
