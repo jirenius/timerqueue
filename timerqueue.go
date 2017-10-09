@@ -1,5 +1,6 @@
 // Package timerqueue provides a timer queue for a list of items that should be processed
 // after a fixed duration of time from when they are added to the queue.
+// All operations are safe for concurrent use.
 package timerqueue
 
 import (
