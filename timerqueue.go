@@ -65,12 +65,18 @@ func (q *Queue) Len() int {
 
 // Clear removes all elements from the queue.
 func (q *Queue) Clear() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
+	q.clear()
+}
 
-	q.first = nil
-	q.last = nil
-	q.m = make(map[interface{}]*element)
+// Flush calls the callback for each element in the queue.
+// Any new element added while flushing, will not be called.
+func (q *Queue) Flush() {
+	el := q.clear()
+
+	for el != nil {
+		q.cb(el.v)
+		el = el.next
+	}
 }
 
 // Remove removes an element from the queue.
@@ -113,6 +119,17 @@ func (q *Queue) Reset(v interface{}) {
 	if first == el {
 		go q.timer(q.first, q.first.time)
 	}
+}
+
+func (q *Queue) clear() *element {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	first := q.first
+	q.first = nil
+	q.last = nil
+	q.m = make(map[interface{}]*element)
+	return first
 }
 
 func (q *Queue) remove(el *element) {

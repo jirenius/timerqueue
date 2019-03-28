@@ -20,6 +20,7 @@ const (
 	Remove
 	Reset
 	Clear
+	Flush
 	Len
 )
 
@@ -54,6 +55,8 @@ func runTestSet(t *testing.T, set TestSet) {
 			q.Reset(ev.Item)
 		case Clear:
 			q.Clear()
+		case Flush:
+			q.Flush()
 		case Len:
 			l := q.Len()
 			if l != int(ev.Item) {
@@ -263,6 +266,27 @@ func TestClearOnList(t *testing.T) {
 			{1, Add, 3},
 		},
 		Expected: []ItemID{1, 3},
+	})
+}
+
+func TestFlushOnEmpty(t *testing.T) {
+	runTestSet(t, TestSet{
+		Events: []TestEvent{
+			{0, Flush, 0},
+		},
+		Expected: []ItemID{},
+	})
+}
+
+func TestFlushOnList(t *testing.T) {
+	runTestSet(t, TestSet{
+		Events: []TestEvent{
+			{0, Add, 1},
+			{1, Add, 2},
+			{1, Flush, 0},
+			{1, Len, 1},
+		},
+		Expected: []ItemID{1, 2},
 	})
 }
 
