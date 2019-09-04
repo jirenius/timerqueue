@@ -64,14 +64,21 @@ func (q *Queue) Len() int {
 }
 
 // Clear removes all elements from the queue.
-func (q *Queue) Clear() {
-	q.clear()
+// Returns a slice of the elements cleared from the queue.
+func (q *Queue) Clear() []interface{} {
+	el, l := q.clear()
+	elems := make([]interface{}, l)
+	for i := 0; el != nil; i++ {
+		elems[i] = el.v
+		el = el.next
+	}
+	return elems
 }
 
 // Flush calls the callback for each element in the queue.
 // Any new element added while flushing, will not be called.
 func (q *Queue) Flush() {
-	el := q.clear()
+	el, _ := q.clear()
 
 	for el != nil {
 		q.cb(el.v)
@@ -80,14 +87,14 @@ func (q *Queue) Flush() {
 }
 
 // Remove removes an element from the queue.
-// If the element is not in the queue, the call is a no-op
-func (q *Queue) Remove(v interface{}) {
+// Returns false if the element was not in the queue, otherwise true.
+func (q *Queue) Remove(v interface{}) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	el, ok := q.m[v]
 	if !ok {
-		return
+		return false
 	}
 
 	first := q.first
@@ -98,16 +105,18 @@ func (q *Queue) Remove(v interface{}) {
 	if first == el && q.first != nil {
 		go q.timer(q.first, q.first.time)
 	}
+	return true
 }
 
 // Reset sets the time of the element callback back to full duration.
-func (q *Queue) Reset(v interface{}) {
+// Returns false if the the element was not in the queue, otherwise true.
+func (q *Queue) Reset(v interface{}) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	el, ok := q.m[v]
 	if !ok {
-		return
+		return false
 	}
 
 	el.time = time.Now().Add(q.duration)
@@ -119,17 +128,19 @@ func (q *Queue) Reset(v interface{}) {
 	if first == el {
 		go q.timer(q.first, q.first.time)
 	}
+	return true
 }
 
-func (q *Queue) clear() *element {
+func (q *Queue) clear() (*element, int) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	first := q.first
 	q.first = nil
 	q.last = nil
+	l := len(q.m)
 	q.m = make(map[interface{}]*element)
-	return first
+	return first, l
 }
 
 func (q *Queue) remove(el *element) {

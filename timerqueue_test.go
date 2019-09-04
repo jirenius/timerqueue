@@ -30,9 +30,10 @@ type TestSet struct {
 }
 
 type TestEvent struct {
-	Delay  time.Duration
-	Action TestAction
-	Item   ItemID
+	Delay    time.Duration
+	Action   TestAction
+	Item     ItemID
+	Expected interface{}
 }
 
 func runTestSet(t *testing.T, set TestSet) {
@@ -50,16 +51,31 @@ func runTestSet(t *testing.T, set TestSet) {
 		case Add:
 			q.Add(ev.Item)
 		case Remove:
-			q.Remove(ev.Item)
+			r := q.Remove(ev.Item)
+			if r != ev.Expected.(bool) {
+				t.Errorf("Queue.Remove(): expected %+v, actual %+v", ev.Expected, r)
+			}
 		case Reset:
-			q.Reset(ev.Item)
+			r := q.Reset(ev.Item)
+			if r != ev.Expected.(bool) {
+				t.Errorf("Queue.Reset(): expected %+v, actual %+v", ev.Expected, r)
+			}
 		case Clear:
-			q.Clear()
+			elems := q.Clear()
+			ex := ev.Expected.([]interface{})
+			if len(elems) != len(ex) {
+				t.Errorf("Queue.Clear() len: expected %d, actual %d", len(ex), len(elems))
+			}
+			for i, v := range elems {
+				if v != ex[i] {
+					t.Errorf("Queue.Clear() index %d: expected %d, actual %d", i, ex[i], v)
+				}
+			}
 		case Flush:
 			q.Flush()
 		case Len:
 			l := q.Len()
-			if l != int(ev.Item) {
+			if l != ev.Expected.(int) {
 				t.Errorf("Queue.Len(): expected %d, actual %d", ev.Item, l)
 			}
 		}
@@ -101,7 +117,7 @@ func callback(t *testing.T, wg *sync.WaitGroup, itemIDs *[]ItemID) func(interfac
 func TestAddSingleItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
+			{0, Add, 1, nil},
 		},
 		Expected: []ItemID{1},
 	})
@@ -110,9 +126,9 @@ func TestAddSingleItem(t *testing.T) {
 func TestAddMultipleItemsWithoutDelay(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{0, Add, 2},
-			{0, Add, 3},
+			{0, Add, 1, nil},
+			{0, Add, 2, nil},
+			{0, Add, 3, nil},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -121,9 +137,9 @@ func TestAddMultipleItemsWithoutDelay(t *testing.T) {
 func TestAddMultipleItemsWithDelay(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{5, Add, 2},
-			{5, Add, 3},
+			{0, Add, 1, nil},
+			{5, Add, 2, nil},
+			{5, Add, 3, nil},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -132,9 +148,9 @@ func TestAddMultipleItemsWithDelay(t *testing.T) {
 func TestAddMultipleItemsWithLongDelay(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{15, Add, 2},
-			{15, Add, 3},
+			{0, Add, 1, nil},
+			{15, Add, 2, nil},
+			{15, Add, 3, nil},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -143,8 +159,8 @@ func TestAddMultipleItemsWithLongDelay(t *testing.T) {
 func TestResetOnSingleItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{5, Reset, 1},
+			{0, Add, 1, nil},
+			{5, Reset, 1, true},
 		},
 		Expected: []ItemID{1},
 	})
@@ -153,10 +169,10 @@ func TestResetOnSingleItem(t *testing.T) {
 func TestResetOnFirstItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Reset, 1},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Reset, 1, true},
 		},
 		Expected: []ItemID{2, 3, 1},
 	})
@@ -165,10 +181,10 @@ func TestResetOnFirstItem(t *testing.T) {
 func TestResetOnMiddleItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Reset, 2},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Reset, 2, true},
 		},
 		Expected: []ItemID{1, 3, 2},
 	})
@@ -177,10 +193,10 @@ func TestResetOnMiddleItem(t *testing.T) {
 func TestResetOnLastItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Reset, 3},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Reset, 3, true},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -189,8 +205,8 @@ func TestResetOnLastItem(t *testing.T) {
 func TestRemoveItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Remove, 1},
+			{0, Add, 1, nil},
+			{1, Remove, 1, true},
 		},
 		Expected: []ItemID{},
 	})
@@ -199,10 +215,10 @@ func TestRemoveItem(t *testing.T) {
 func TestRemoveOnFirstItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Remove, 1},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Remove, 1, true},
 		},
 		Expected: []ItemID{2, 3},
 	})
@@ -211,10 +227,10 @@ func TestRemoveOnFirstItem(t *testing.T) {
 func TestRemoveOnMiddleItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Remove, 2},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Remove, 2, true},
 		},
 		Expected: []ItemID{1, 3},
 	})
@@ -223,10 +239,10 @@ func TestRemoveOnMiddleItem(t *testing.T) {
 func TestRemoveOnLastItem(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{1, Remove, 3},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{1, Remove, 3, true},
 		},
 		Expected: []ItemID{1, 2},
 	})
@@ -241,8 +257,8 @@ func TestPanicOnDuplicate(t *testing.T) {
 
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 1},
+			{0, Add, 1, nil},
+			{1, Add, 1, nil},
 		},
 		Expected: []ItemID{1},
 	})
@@ -251,7 +267,7 @@ func TestPanicOnDuplicate(t *testing.T) {
 func TestClearOnEmpty(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Clear, 0},
+			{0, Clear, 0, []interface{}{}},
 		},
 		Expected: []ItemID{},
 	})
@@ -260,10 +276,10 @@ func TestClearOnEmpty(t *testing.T) {
 func TestClearOnList(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{15, Add, 2},
-			{1, Clear, 0},
-			{1, Add, 3},
+			{0, Add, 1, nil},
+			{15, Add, 2, nil},
+			{1, Clear, 1, []interface{}{ItemID(2)}},
+			{1, Add, 3, nil},
 		},
 		Expected: []ItemID{1, 3},
 	})
@@ -272,7 +288,7 @@ func TestClearOnList(t *testing.T) {
 func TestFlushOnEmpty(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Flush, 0},
+			{0, Flush, 0, nil},
 		},
 		Expected: []ItemID{},
 	})
@@ -281,10 +297,10 @@ func TestFlushOnEmpty(t *testing.T) {
 func TestFlushOnList(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Flush, 0},
-			{1, Len, 1},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Flush, 0, nil},
+			{1, Len, 0, 0},
 		},
 		Expected: []ItemID{1, 2},
 	})
@@ -293,13 +309,13 @@ func TestFlushOnList(t *testing.T) {
 func TestLen(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Len, 0},
-			{1, Add, 1},
-			{0, Len, 1},
-			{1, Add, 2},
-			{0, Len, 2},
-			{1, Add, 3},
-			{1, Len, 3},
+			{0, Len, 0, 0},
+			{1, Add, 1, nil},
+			{0, Len, 0, 1},
+			{1, Add, 2, nil},
+			{0, Len, 0, 2},
+			{1, Add, 3, nil},
+			{1, Len, 0, 3},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -308,10 +324,10 @@ func TestLen(t *testing.T) {
 func TestRemoveOnNonExisting(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{15, Remove, 1},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{15, Remove, 1, false},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
@@ -320,10 +336,10 @@ func TestRemoveOnNonExisting(t *testing.T) {
 func TestResetOnNonExisting(t *testing.T) {
 	runTestSet(t, TestSet{
 		Events: []TestEvent{
-			{0, Add, 1},
-			{1, Add, 2},
-			{1, Add, 3},
-			{15, Reset, 1},
+			{0, Add, 1, nil},
+			{1, Add, 2, nil},
+			{1, Add, 3, nil},
+			{15, Reset, 1, false},
 		},
 		Expected: []ItemID{1, 2, 3},
 	})
